@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Моя Ферма</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Arial,sans-serif;background:#bde88b;color:#26351e}
+header{background:#5b9f3c;color:#fff;padding:18px;text-align:center;box-shadow:0 3px 10px #0002}
+h1{margin:0 0 6px}.stats{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}.stat{background:#ffffff22;padding:8px 14px;border-radius:20px}
+main{max-width:1100px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.card{background:#fff;border-radius:18px;padding:16px;box-shadow:0 4px 14px #0002;margin-bottom:16px}
+.farm{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:#9a6a3a;padding:12px;border-radius:15px}
+.plot{aspect-ratio:1;border:3px solid #76502d;border-radius:12px;background:#b77b43;display:flex;align-items:center;justify-content:center;font-size:38px;cursor:pointer;user-select:none;transition:.15s}
+.plot:hover{transform:scale(1.03)}.plot.empty{background:#8e6339}
+button{border:0;border-radius:12px;padding:11px 13px;background:#5b9f3c;color:#fff;font-weight:700;cursor:pointer;margin:4px}
+button:hover{filter:brightness(1.08)}button:disabled{opacity:.45;cursor:not-allowed}
+.shop{display:grid;grid-template-columns:1fr 1fr;gap:8px}.item{border:1px solid #ddd;border-radius:12px;padding:10px}
+.small{font-size:13px;color:#65705f}.log{max-height:150px;overflow:auto;background:#f3f7ef;padding:10px;border-radius:10px;font-size:14px}
+@media(max-width:750px){.grid{grid-template-columns:1fr}.farm{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header><h1>🌱 Моя Ферма</h1><div class="stats">
+<span class="stat">🪙 <b id="coins">100</b></span><span class="stat">⭐ Уровень <b id="level">1</b></span>
+<span class="stat">🌾 Урожай <b id="harvest">0</b></span><span class="stat">🐔 Животные <b id="animals">0</b></span>
+</div></header>
+<main>
+<div class="grid">
+<section>
+<div class="card"><h2>🚜 Твоя ферма</h2><p class="small">Нажми на пустую грядку, чтобы посадить растение. Когда оно вырастет — нажми ещё раз, чтобы собрать урожай.</p>
+<div id="farm" class="farm"></div>
+</div>
+<div class="card"><h2>🏪 Магазин</h2><div class="shop">
+<div class="item"><b>🌱 Семена пшеницы</b><br><span class="small">Цена: 5 🪙 · Урожай: 12 🪙</span><br><button onclick="buySeed()">Купить семена</button></div>
+<div class="item"><b>🐔 Курица</b><br><span class="small">Цена: 50 🪙 · +2 🪙 каждые 15 сек.</span><br><button onclick="buyAnimal('chicken')">Купить</button></div>
+<div class="item"><b>🐄 Корова</b><br><span class="small">Цена: 120 🪙 · +7 🪙 каждые 15 сек.</span><br><button onclick="buyAnimal('cow')">Купить</button></div>
+<div class="item"><b>🐑 Овца</b><br><span class="small">Цена: 200 🪙 · +12 🪙 каждые 15 сек.</span><br><button onclick="buyAnimal('sheep')">Купить</button></div>
+</div></div>
+</section>
+<aside>
+<div class="card"><h2>⬆️ Улучшения</h2>
+<p>Уровень фермы: <b id="farmLevel">1</b></p>
+<p class="small">Больше грядок и быстрее рост растений.</p>
+<button onclick="upgradeFarm()">Улучшить за <span id="upgradeCost">100</span> 🪙</button>
+</div>
+<div class="card"><h2>🎒 Инвентарь</h2><p>🌾 Пшеница: <b id="wheat">0</b></p><p>🌱 Семена: <b id="seeds">3</b></p></div>
+<div class="card"><h2>📜 События</h2><div id="log" class="log"></div></div>
+</aside>
+</div>
+</main>
+<script>
+const SAVE='my_farm_save_v1';
+let s=JSON.parse(localStorage.getItem(SAVE)||'null')||{
+ coins:100,level:1,farmLevel:1,harvest:0,seeds:3,animals:{chicken:0,cow:0,sheep:0},
+ plots:Array(6).fill(null)
+};
+const types={chicken:{price:50,income:2,icon:'🐔'},cow:{price:120,income:7,icon:'🐄'},sheep:{price:200,income:12,icon:'🐑'}};
+function save(){localStorage.setItem(SAVE,JSON.stringify(s))}
+function log(t){let x=document.createElement('div');x.textContent=t;document.getElementById('log').prepend(x)}
+function render(){
+ document.getElementById('coins').textContent=Math.floor(s.coins);document.getElementById('level').textContent=s.level;
+ document.getElementById('harvest').textContent=s.harvest;document.getElementById('wheat').textContent=s.harvest;
+ document.getElementById('seeds').textContent=s.seeds;document.getElementById('farmLevel').textContent=s.farmLevel;
+ document.getElementById('upgradeCost').textContent=100*s.farmLevel;
+ document.getElementById('animals').textContent=Object.values(s.animals).reduce((a,b)=>a+b,0);
+ let farm=document.getElementById('farm');farm.innerHTML='';
+ s.plots.forEach((p,i)=>{let d=document.createElement('div');d.className='plot '+(!p?'empty':'');
+ if(!p)d.textContent='🟫'; else if(p.ready)d.textContent='🌾'; else d.textContent='🌱';
+ d.onclick=()=>usePlot(i);farm.appendChild(d)});
+}
+function usePlot(i){
+ let p=s.plots[i];
+ if(!p){if(s.seeds<1)return log('Нет семян! Купи их в магазине.');s.seeds--;s.plots[i]={ready:false,at:Date.now()+7000};log('🌱 Пшеница посажена!');render();
+log('🌱 Добро пожаловать на ферму! Посади растение на свободной грядке.');save();return}
+ if(Date.now()>=p.at){s.plots[i]=null;s.coins+=12;s.harvest++;s.level=1+Math.floor(s.harvest/10);log('🌾 Урожай собран: +12 🪙');render();
+log('🌱 Добро пожаловать на ферму! Посади растение на свободной грядке.');save()}
+ else log('⏳ Растение ещё растёт. Осталось несколько секунд.');
+}
+function buySeed(){if(s.coins<5)return log('Недостаточно монет.');s.coins-=5;s.seeds++;log('🌱 Куплено семя.');render();
+log('🌱 Добро пожаловать на ферму! Посади растение на свободной грядке.');save()}
+function buyAnimal(t){let a=types[t];if(s.coins<a.price)return log('Недостаточно монет.');s.coins-=a.price;s.animals[t]++;log(a.icon+' Животное куплено!');render();
+log('🌱 Добро пожаловать на ферму! Посади растение на свободной грядке.');save()}
+function upgradeFarm(){let cost=100*s.farmLevel;if(s.coins<cost)return log('Недостаточно монет.');s.coins-=cost;s.farmLevel++;s.plots.push(null,null);log('🚜 Ферма улучшена! Добавлено 2 грядки.');render();
+log('🌱 Добро пожаловать на ферму! Посади растение на свободной грядке.');save()}
+setInterval(()=>{let income=0;for(let t in s.animals)income+=s.animals[t]*types[t].income;s.coins+=income;if(income)log('💰 Животные принесли '+income+' 🪙');render();
+log('🌱 Добро пожаловать на ферму! Посади растение на свободной грядке.');save()},15000);
+setInterval(()=>{s.plots.forEach(p=>{if(p&&Date.now()>=p.at)p.ready=true});render()},1000);
+render();
+log('🌱 Добро пожаловать на ферму! Посади растение на свободной грядке.');
+</script>
+</body></html>
